@@ -5,6 +5,12 @@ import (
 	"fmt"
 )
 
+const (
+	RPS_QUERY = 540
+	RPS_PEER  = 541
+	// Reserved up to 559.
+)
+
 type RPSQuery struct {
 	// This is empty.
 }
@@ -49,7 +55,7 @@ func (m *RPSPeer) MinimumLength() int {
 
 func (m *RPSPeer) PayloadLength() int {
 
-	return m.MinimumLength() + IPLength
+	return m.MinimumLength() + len(m.IPAddress) + len(m.PeerHostKeyInDER)
 }
 
 func (m *RPSPeer) UnmarshalBinary(data []byte) error {

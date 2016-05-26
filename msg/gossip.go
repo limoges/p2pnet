@@ -5,6 +5,14 @@ import (
 	"fmt"
 )
 
+const (
+	GOSSIP_ANNOUNCE     = 500
+	GOSSIP_NOTIFY       = 501
+	GOSSIP_NOTIFICATION = 502
+	GOSSIP_VALIDATION   = 503
+	// Reserved up to 519.
+)
+
 // Gossip Announce
 type GossipAnnounce struct {
 	TTL      uint8
@@ -34,7 +42,7 @@ func (m *GossipAnnounce) UnmarshalBinary(data []byte) error {
 	m.TTL = data[0]
 	m.reserved = data[1]
 	m.DataType = binary.BigEndian.Uint16(data[2:4])
-	m.Data = data[4:]
+	copy(m.Data, data[4:])
 	return nil
 }
 
