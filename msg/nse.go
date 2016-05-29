@@ -71,7 +71,7 @@ func (m *NSEEstimate) MarshalBinary() (data []byte, err error) {
 
 	payloadBuf := make([]byte, m.PayloadLength())
 
-	binary.BigEndian.PutUint32(data[:4], m.EstimatePeers)
-	binary.BigEndian.PutUint32(data[4:8], m.EstimateStdDeviation)
+	binary.BigEndian.PutUint32(payloadBuf[:4], m.EstimatePeers)
+	binary.BigEndian.PutUint32(payloadBuf[4:8], m.EstimateStdDeviation)
 	return createMessage(NSE_ESTIMATE, payloadBuf), nil
 }

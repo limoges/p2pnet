@@ -44,6 +44,7 @@ func (c Configurations) Get(data interface{}, section string, key string) bool {
 
 	value, ok := c.file.Get(section, key)
 	if !ok {
+		fmt.Printf("Could not find section.key = %v.%v\n", section, key)
 		return ok
 	}
 

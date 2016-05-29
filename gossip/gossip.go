@@ -6,16 +6,6 @@ import (
 	"net"
 )
 
-const (
-	sectionToken           = "Gossip"
-	cacheSizeToken         = "cache_size"
-	degreeToken            = "degree"
-	maximumConnexionsToken = "max_connections"
-	bootstrapToken         = "bootstrapper"
-	listenToken            = "listen_address"
-	apiToken               = "api_address"
-)
-
 type Gossip struct {
 	CacheSize     int
 	MaxConns      int
@@ -30,6 +20,10 @@ type Subscriber struct {
 }
 
 const (
+	DATA_TYPE = 0
+)
+
+const (
 	PeerInformation   = 100
 	cacheSizeToken    = "cache_size"
 	DefaultCacheSize  = 50
@@ -41,17 +35,29 @@ const (
 	DefaultListenAddr = "127.0.0.1:7001"
 	apiAddrToken      = "api_address"
 	DefaultApiAddr    = "127.0.0.1:6001"
+	sectionToken      = "GOSSIP"
 )
 
-func New(conf cfg.Configurations) (module Gossip, err error) {
+func New(conf *cfg.Configurations) (module *Gossip, err error) {
 
-	module := &Gossip{}
+	module = &Gossip{}
 	conf.Init(&module.CacheSize, sectionToken, cacheSizeToken, DefaultCacheSize)
 	conf.Init(&module.MaxConns, sectionToken, maxConnsToken, DefaultMaxConns)
 	conf.Init(&module.BootstrapAddr, sectionToken, bootstrapToken, DefaultBootstrap)
 	conf.Init(&module.ListenAddr, sectionToken, listenAddrToken, DefaultListenAddr)
 	conf.Init(&module.APIAddr, sectionToken, apiAddrToken, DefaultApiAddr)
+	fmt.Printf("Gossip created: %v\n", module)
 	return module, nil
+}
+
+func (g *Gossip) String() string {
+	return fmt.Sprintf(
+		"{CacheSize:%v, MaxConns:%v, Bootstrap:%v, Listen:%v, API:%v}",
+		g.CacheSize,
+		g.MaxConns,
+		g.BootstrapAddr,
+		g.ListenAddr,
+		g.APIAddr)
 }
 
 func (g *Gossip) Run() {
@@ -82,14 +88,32 @@ func (g *Gossip) listenAPI(ln net.Listener) {
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			go g.handle(conn)
+			go g.handleAPI(conn)
 		}
 	}
 }
 
 func (g *Gossip) handleAPI(conn net.Conn) {
+	fmt.Printf("API: New connexion from %v\n", conn.RemoteAddr())
+}
 
+func (g *Gossip) handle(conn net.Conn) {
+	fmt.Printf("New connexion from %v\n", conn.RemoteAddr())
 }
 
 func (g *Gossip) listen(ln net.Listener) {
+	fmt.Printf("Launched Gossip Listener on %v\n", ln.Addr())
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			go g.handle(conn)
+		}
+	}
+}
+
+func (g *Gossip) Announce(data interface{}, dataType int16) {
+
 }

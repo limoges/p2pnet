@@ -1,8 +1,9 @@
 package msg
 
 import (
+	"bytes"
 	"encoding/binary"
-	"fmt"
+	"io"
 )
 
 type AuthSessionIncomingHS1 struct {
@@ -12,43 +13,34 @@ type AuthSessionIncomingHS1 struct {
 	HandshakePayload []byte
 }
 
-func (m AuthSessionIncomingHS1) String() string {
-	return fmt.Sprintf(
-		"AuthSessionIncomingHS1{HostkeySize:%v, SourceHostkey:%v, HandshakePayload%v",
-		m.HostkeySize,
-		m.SourceHostkey,
-		m.HandshakePayload)
+func (m AuthSessionIncomingHS1) TypeId() uint16 {
+	return AUTH_SESSION_INCOMING_HS1
 }
 
-func (m AuthSessionIncomingHS1) MinimumLength() int {
-	return 4
-}
+func NewAuthSessionIncomingHS1(data []byte) (AuthSessionIncomingHS1, error) {
 
-func (m AuthSessionIncomingHS1) PayloadLength() int {
-	return m.MinimumLength() + len(m.SourceHostkey) + len(m.HandshakePayload)
-}
-
-func (m *AuthSessionIncomingHS1) UnmarshalBinary(data []byte) error {
-
-	if len(data) < m.MinimumLength() {
-		return ErrDataTooShort
+	m := AuthSessionIncomingHS1{}
+	reader := bytes.NewReader(data)
+	if err := binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
+		return m, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &m.HostkeySize); err != nil {
+		return m, err
 	}
 
-	m.HostkeySize = binary.BigEndian.Uint16(data[2:4])
-	m.SourceHostkey = make([]byte, m.HostkeySize)
-	copy(m.SourceHostkey, data[4:4+m.HostkeySize])
-	m.HandshakePayload = make([]byte, len(data[4+m.HostkeySize:]))
-	copy(m.HandshakePayload, data[4+m.HostkeySize:])
-	return nil
-}
+	mustRead := int(m.HostkeySize)
+	hostkey := make([]byte, mustRead)
+	if _, err := io.ReadFull(reader, hostkey); err != nil {
+		return m, err
+	}
+	m.SourceHostkey = hostkey
 
-func (m AuthSessionIncomingHS1) MarshalBinary() (data []byte, err error) {
+	mustRead = len(data) - int(m.HostkeySize) - 4
+	payload := make([]byte, mustRead)
+	if _, err := io.ReadFull(reader, payload); err != nil {
+		return m, err
+	}
+	m.HandshakePayload = payload
 
-	payloadBuf := make([]byte, m.PayloadLength())
-
-	binary.BigEndian.PutUint16(data[2:4], m.HostkeySize)
-	copy(payloadBuf[4:], m.SourceHostkey)
-	copy(payloadBuf[4+len(m.SourceHostkey):], m.HandshakePayload)
-
-	return createMessage(AUTH_SESSION_INCOMING_HS1, payloadBuf), nil
+	return m, nil
 }

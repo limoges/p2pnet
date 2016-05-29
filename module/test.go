@@ -21,14 +21,14 @@ func main() {
 
 	flag.Parse()
 
-	//fmt.Printf("Testing connexion: %v\n", address)
+	fmt.Printf("Testing connexion: %v\n", address)
 
-	//conn, err := net.Dial("tcp", address)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-	//fmt.Println("Successfully connected.")
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Successfully connected.")
 
 	announce := &msg.GossipAnnounce{
 		TTL:      1,
@@ -78,14 +78,13 @@ func main() {
 	}
 
 	for _, m := range messages {
-		//fmt.Println(m)
 		msg.MarshalBinary(m)
 		fmt.Println("")
-		//buf, _ := m.MarshalBinary()
-		//fmt.Println(buf)
-		//_, err := conn.Write(buf)
-		//if err != nil {
-		//	fmt.Println(err)
-		//}
+		buf, _ := m.MarshalBinary()
+		fmt.Println(buf)
+		_, err := conn.Write(buf)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }

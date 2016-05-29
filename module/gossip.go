@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/limoges/p2pnet/auth"
 	"github.com/limoges/p2pnet/cfg"
+	"github.com/limoges/p2pnet/gossip"
 )
 
 var filename string
@@ -29,7 +29,7 @@ func main() {
 		return
 	}
 
-	module, err := auth.New(config)
+	module, err := gossip.New(config)
 	if err != nil {
 		fmt.Println(err)
 		return
