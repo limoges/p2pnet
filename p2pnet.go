@@ -5,9 +5,11 @@ import (
 	"net"
 )
 
-type Peer struct {
-	IPAddr  []byte
-	HostKey []byte
+type SessionId uint32
+
+type Session struct {
+	ID      SessionId
+	Partner Peer
 }
 
 func BuildConnexionIdentityToken(conn net.Conn) string {

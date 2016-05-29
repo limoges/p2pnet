@@ -3,8 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/limoges/p2pnet/msg"
 	"net"
+
+	"github.com/limoges/p2pnet/msg"
 )
 
 var address string
