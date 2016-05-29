@@ -25,6 +25,7 @@ func New(conf *cfg.Configurations) (client *Client, err error) {
 	auth, err := auth.New(conf)
 	if err != nil {
 		fmt.Println(err)
+		return nil, err
 	}
 	client.Auth = auth
 

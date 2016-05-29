@@ -87,6 +87,7 @@ func MarshalBinary(m Message) {
 func NewMessage(h Header, payload []byte) Message {
 
 	var m Message
+
 	switch h.Type {
 	case GOSSIP_ANNOUNCE:
 		m = &GossipAnnounce{}
@@ -118,22 +119,35 @@ func NewMessage(h Header, payload []byte) Message {
 		m = &OnionError{}
 	case ONION_COVER:
 		m = &OnionCover{}
-	// case AUTH_SESSION_START:
-	// case AUTH_SESSION_HS1:
-	// case AUTH_SESSION_INCOMING_HS1:
-	// case AUTH_SESSION_HS2:
-	// case AUTH_SESSION_INCOMING_HS2:
-	// case AUTH_LAYER_ENCRYPT:
-	// case AUTH_LAYER_ENCRYPT_RESP:
-	// case AUTH_LAYER_DECRYPT:
-	// case AUTH_LAYER_DECRYPT_RESP:
-	// case AUTH_SESSION_CLOSE:
+	case AUTH_SESSION_START:
+		m = &AuthSessionStart{}
+	case AUTH_SESSION_HS1:
+		m = &AuthSessionHS1{}
+	case AUTH_SESSION_INCOMING_HS1:
+		m = &AuthSessionIncomingHS1{}
+	case AUTH_SESSION_HS2:
+		m = &AuthSessionHS2{}
+	case AUTH_SESSION_INCOMING_HS2:
+		m = &AuthSessionIncomingHS2{}
+	case AUTH_LAYER_ENCRYPT:
+		m = &AuthLayerEncrypt{}
+	case AUTH_LAYER_ENCRYPT_RESP:
+		m = &AuthLayerEncryptResp{}
+	case AUTH_LAYER_DECRYPT:
+		m = &AuthLayerDecrypt{}
+	case AUTH_LAYER_DECRYPT_RESP:
+		m = &AuthLayerDecryptResp{}
+	case AUTH_SESSION_CLOSE:
+		m = &AuthSessionClose{}
 	default:
 		fmt.Printf("Unhandled message type: %v\n", h.Type)
 	}
 	m.UnmarshalBinary(payload)
 	fmt.Println(m)
 	return m
+}
+
+func ReadMessage(conn net.Conn) {
 }
 
 func Handle(conn net.Conn) {

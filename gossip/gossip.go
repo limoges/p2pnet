@@ -30,23 +30,27 @@ type Subscriber struct {
 }
 
 const (
-	PeerInformation = 100
+	PeerInformation   = 100
+	cacheSizeToken    = "cache_size"
+	DefaultCacheSize  = 50
+	maxConnsToken     = "max_connections"
+	DefaultMaxConns   = 3
+	bootstrapToken    = "bootstrapper"
+	DefaultBootstrap  = "fulcrum.net.in.tum.de:6001"
+	listenAddrToken   = "listen_address"
+	DefaultListenAddr = "127.0.0.1:7001"
+	apiAddrToken      = "api_address"
+	DefaultApiAddr    = "127.0.0.1:6001"
 )
 
 func New(conf cfg.Configurations) (module Gossip, err error) {
 
-	// TODO: Add defaults to these configurations.
-	conf.Init(&module.CacheSize, sectionToken,
-		"cache_size", 50)
-	conf.Init(&module.MaxConns, sectionToken,
-		"max_connections", 3)
-	conf.Init(&module.BootstrapAddr, sectionToken,
-		"bootstrapper", "fulcrum.net.in.tum.de:6001")
-	conf.Init(&module.ListenAddr, sectionToken,
-		"listen_address", "127.0.0.1:6001")
-	conf.Init(&module.APIAddr, sectionToken,
-		"api_address", "127.0.0.1:7001")
-
+	module := &Gossip{}
+	conf.Init(&module.CacheSize, sectionToken, cacheSizeToken, DefaultCacheSize)
+	conf.Init(&module.MaxConns, sectionToken, maxConnsToken, DefaultMaxConns)
+	conf.Init(&module.BootstrapAddr, sectionToken, bootstrapToken, DefaultBootstrap)
+	conf.Init(&module.ListenAddr, sectionToken, listenAddrToken, DefaultListenAddr)
+	conf.Init(&module.APIAddr, sectionToken, apiAddrToken, DefaultApiAddr)
 	return module, nil
 }
 
