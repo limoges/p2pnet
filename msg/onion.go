@@ -25,7 +25,7 @@ type OnionTunnelBuild struct {
 
 func (m OnionTunnelBuild) String() string {
 	return fmt.Sprintf(
-		"OnionTunnelBuild{Port:%v, IPAddr:%v, DestinationHostKeyInDER:%v\n",
+		"OnionTunnelBuild{Port:%v, IPAddr:%v, DestinationHostKeyInDER:%v",
 		m.Port, m.IPAddr, m.DestinationHostKeyInDER)
 }
 
