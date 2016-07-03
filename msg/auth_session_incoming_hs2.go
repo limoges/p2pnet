@@ -1,42 +1,35 @@
 package msg
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/binary"
 )
 
 type AuthSessionIncomingHS2 struct {
+	SessionId uint32
+	Payload   []byte
 }
 
-func (m AuthSessionIncomingHS2) String() string {
-	return fmt.Sprintf("")
+func (m AuthSessionIncomingHS2) TypeId() uint16 {
+	return AUTH_SESSION_INCOMING_HS2
 }
 
-func (m AuthSessionIncomingHS2) MinimumLength() int {
-	return 0
-}
+func NewAuthSessionIncomingHS2(data []byte) (AuthSessionIncomingHS2, error) {
 
-func (m AuthSessionIncomingHS2) PayloadLength() int {
+	var m AuthSessionIncomingHS2
+	var reader *bytes.Reader
+	var err error
 
-	// TODO: Implementation
-	return m.MinimumLength()
-}
+	m = AuthSessionIncomingHS2{}
+	reader = bytes.NewReader(data)
 
-func (m *AuthSessionIncomingHS2) UnmarshalBinary(data []byte) error {
-
-	if len(data) < m.MinimumLength() {
-		return ErrDataTooShort
+	if err = binary.Read(reader, binary.BigEndian, &m.SessionId); err != nil {
+		return m, err
 	}
+	data = data[4:]
 
-	// TODO: Implementation
+	m.Payload = make([]byte, len(data))
+	copy(m.Payload, data)
 
-	return nil
-}
-
-func (m AuthSessionIncomingHS2) MarshalBinary() (data []byte, err error) {
-
-	payloadBuf := make([]byte, m.PayloadLength())
-
-	// TODO: Implementation
-
-	return createMessage(AUTH_SESSION_INCOMING_HS2, payloadBuf), nil
+	return m, nil
 }

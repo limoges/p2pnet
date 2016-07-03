@@ -8,8 +8,8 @@ import (
 
 type AuthSessionIncomingHS1 struct {
 	Reserved         uint16
-	HostkeySize      uint16
-	SourceHostkey    []byte
+	HostkeyLength    uint16
+	Hostkey          []byte
 	HandshakePayload []byte
 }
 
@@ -24,18 +24,18 @@ func NewAuthSessionIncomingHS1(data []byte) (AuthSessionIncomingHS1, error) {
 	if err := binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
 		return m, err
 	}
-	if err := binary.Read(reader, binary.BigEndian, &m.HostkeySize); err != nil {
+	if err := binary.Read(reader, binary.BigEndian, &m.HostkeyLength); err != nil {
 		return m, err
 	}
 
-	mustRead := int(m.HostkeySize)
+	mustRead := int(m.HostkeyLength)
 	hostkey := make([]byte, mustRead)
 	if _, err := io.ReadFull(reader, hostkey); err != nil {
 		return m, err
 	}
-	m.SourceHostkey = hostkey
+	m.Hostkey = hostkey
 
-	mustRead = len(data) - int(m.HostkeySize) - 4
+	mustRead = len(data) - int(m.HostkeyLength) - 4
 	payload := make([]byte, mustRead)
 	if _, err := io.ReadFull(reader, payload); err != nil {
 		return m, err

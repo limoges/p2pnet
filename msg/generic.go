@@ -1,6 +1,7 @@
 package msg
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -24,10 +25,10 @@ func (m GenericMessage) MessageType() uint16 {
 }
 
 func (m GenericMessage) String() string {
-	return fmt.Sprintf("%v(%v)%v", identifier(m.Type), m.Size, m.Content)
+	return fmt.Sprintf("%v#%v[%v]", Identifier(m.Type), m.Type, m.Size)
 }
 
-func identifier(messageType uint16) string {
+func Identifier(messageType uint16) string {
 
 	switch messageType {
 	case GOSSIP_ANNOUNCE:
@@ -80,6 +81,10 @@ func identifier(messageType uint16) string {
 		return "AUTH_LAYER_DECRYPT_RESP"
 	case AUTH_SESSION_CLOSE:
 		return "AUTH_SESSION_CLOSE"
+	case AUTH_HANDSHAKE1:
+		return "AUTH_HANDSHAKE1"
+	case AUTH_HANDSHAKE2:
+		return "AUTH_HANDSHAKE2"
 	default:
 		return "UNKNOWN_MESSAGE"
 	}
@@ -105,7 +110,7 @@ func WriteGenericMessage(writer io.Writer, message GenericMessage) error {
 	return nil
 }
 
-func ReadGenericMessage(reader io.Reader) (GenericMessage, error) {
+func ReadGenericMessage(reader *bufio.Reader) (GenericMessage, error) {
 
 	m := GenericMessage{}
 
@@ -184,8 +189,8 @@ func ConvertFromGeneric(generic GenericMessage) (Message, error) {
 	// 	m = &RPSQuery{}
 	// case RPS_PEER:
 	// 	m = &RPSPeer{}
-	// case ONION_TUNNEL_BUILD:
-	// 	m = &OnionTunnelBuild{}
+	case ONION_TUNNEL_BUILD:
+		m, err = NewOnionTunnelBuild(generic.Content)
 	// case ONION_TUNNEL_READY:
 	// 	m = &OnionTunnelReady{}
 	// case ONION_TUNNEL_INCOMING:
@@ -204,22 +209,27 @@ func ConvertFromGeneric(generic GenericMessage) (Message, error) {
 		m, err = NewAuthSessionHS1(generic.Content)
 	case AUTH_SESSION_INCOMING_HS1:
 		m, err = NewAuthSessionIncomingHS1(generic.Content)
-	// case AUTH_SESSION_HS2:
-	// 	m = &AuthSessionHS2{}
-	// case AUTH_SESSION_INCOMING_HS2:
-	// 	m = &AuthSessionIncomingHS2{}
-	// case AUTH_LAYER_ENCRYPT:
-	// 	m = &AuthLayerEncrypt{}
-	// case AUTH_LAYER_ENCRYPT_RESP:
-	// 	m = &AuthLayerEncryptResp{}
-	// case AUTH_LAYER_DECRYPT:
-	// 	m = &AuthLayerDecrypt{}
-	// case AUTH_LAYER_DECRYPT_RESP:
-	// 	m = &AuthLayerDecryptResp{}
-	// case AUTH_SESSION_CLOSE:
-	// 	m = &AuthSessionClose{}
+	case AUTH_SESSION_HS2:
+		m, err = NewAuthSessionHS2(generic.Content)
+	case AUTH_SESSION_INCOMING_HS2:
+		m, err = NewAuthSessionIncomingHS2(generic.Content)
+		// case AUTH_LAYER_ENCRYPT:
+		// 	m = &AuthLayerEncrypt{}
+		// case AUTH_LAYER_ENCRYPT_RESP:
+		// 	m = &AuthLayerEncryptResp{}
+		// case AUTH_LAYER_DECRYPT:
+		// 	m = &AuthLayerDecrypt{}
+		// case AUTH_LAYER_DECRYPT_RESP:
+		// 	m = &AuthLayerDecryptResp{}
+		// case AUTH_SESSION_CLOSE:
+		// 	m = &AuthSessionClose{}
+	case AUTH_HANDSHAKE1:
+		m, err = NewAuthHandshake1(generic.Content)
+	case AUTH_HANDSHAKE2:
+		m, err = NewAuthHandshake2(generic.Content)
 	default:
-		fmt.Printf("Unhandled message type: %v\n", generic.Type)
+		fmt.Printf("Type cannot be converted from generic: %v\n", generic.Type)
+		panic("Need to implement in msg/messages.go")
 	}
 	if err != nil {
 		fmt.Println(err)

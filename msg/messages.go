@@ -1,9 +1,10 @@
 package msg
 
 import (
+	"bufio"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 )
 
 const (
@@ -15,12 +16,6 @@ var (
 	ErrDataTooShort = errors.New("unmarshal: data is shorter than expected")
 )
 
-func createMessage(messageType int, payloadBuf []byte) (data []byte) {
-
-	panic("Remove this function")
-	return data
-}
-
 type Message interface {
 	TypeId() uint16
 }
@@ -28,10 +23,17 @@ type Message interface {
 // Read a message from the reader.
 func ReadMessage(reader io.Reader) (Message, error) {
 
-	if generic, err := ReadGenericMessage(reader); err != nil {
+	var buf *bufio.Reader
+
+	// Create a buffered reader because calls to read are blocking.
+	// If we have an ill-formed message, we could be stuck trying to
+	// wait for bytes that will never arrive.
+	buf = bufio.NewReader(reader)
+
+	if generic, err := ReadGenericMessage(buf); err != nil {
 		return nil, err
 	} else {
-		fmt.Println("Reading:", generic)
+		log.Println("In :", generic)
 		m, err := ConvertFromGeneric(generic)
 		return m, err
 	}
@@ -44,7 +46,7 @@ func WriteMessage(writer io.Writer, m Message) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Writing:", generic)
+	log.Println("Out:", generic)
 
 	return WriteGenericMessage(writer, generic)
 }
