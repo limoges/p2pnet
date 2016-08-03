@@ -4,51 +4,93 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"strconv"
 
+	"github.com/limoges/p2pnet/auth"
 	"github.com/limoges/p2pnet/msg"
 )
 
-var address string
+var (
+	sourceAddress      string
+	destinationAddress string
+)
 
 func init() {
 	const (
-		defaultAddr = "127.0.0.1:7001"
+		defaultAddr = "127.0.0.1:7031"
 		usageAddr   = "the address to try to connect to"
 	)
-	flag.StringVar(&address, "a", defaultAddr, usageAddr)
+	flag.StringVar(&sourceAddress, "s", defaultAddr, usageAddr)
+	flag.StringVar(&destinationAddress, "d", defaultAddr, usageAddr)
 }
 
 func main() {
 
+	var conn net.Conn
+	var err error
+	var portStr, hostStr string
+	var ips []net.IP
+	var ip net.IP
+	var hostkey []byte
+	var port int
+
 	flag.Parse()
 
-	fmt.Printf("Testing connexion: %v\n", address)
+	fmt.Printf("Attempting to build a tunnel between %v and %v\n",
+		sourceAddress, destinationAddress)
 
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
+	// First, split the address into the IP/Host and Port parts.
+	if hostStr, portStr, err = net.SplitHostPort(destinationAddress); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	sessionStart := msg.AuthSessionStart{
-		Hostkey: []byte{255, 255, 255, 255},
+	// Then, lookup the IP in case we have a hostname.
+	if ips, err = net.LookupIP(hostStr); err != nil || len(ips) == 0 {
+		fmt.Println(err)
+		return
+	}
+	ip = ips[0]
+
+	// Then, read the hostkey of the supposed peer.
+	if hostkey, err = ReadSampleHostkey("./samples/sample1.pem"); err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	sessionHS1 := msg.AuthSessionHS1{
-		SessionId:        uint32(123456),
-		HandshakePayload: []byte{255, 254, 253, 252},
+	if port, err = strconv.Atoi(portStr); err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	messages := []msg.Message{
-		sessionStart,
-		sessionHS1,
+	// Build the OnionTunnelBuild packet.
+	tunnelBuild := msg.OnionTunnelBuild{
+		Port:       uint16(port),
+		IPAddr:     ip.To16(),
+		DstHostkey: hostkey,
 	}
 
-	for _, m := range messages {
-		err := msg.WriteMessage(conn, m)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+	// Try to connect to the live source peer
+	if conn, err = net.Dial("tcp", sourceAddress); err != nil {
+		fmt.Println(err)
+		return
 	}
+
+	if err = msg.WriteMessage(conn, tunnelBuild); err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Success?")
+}
+
+func ReadSampleHostkey(path string) ([]byte, error) {
+
+	var keys *auth.Encryption
+	var err error
+
+	if keys, err = auth.ReadKeys(path); err != nil {
+		return nil, err
+	}
+
+	return keys.Hostkey, nil
 }

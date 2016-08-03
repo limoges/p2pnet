@@ -3,9 +3,11 @@ package p2pnet
 import (
 	"errors"
 	"fmt"
-	"github.com/limoges/p2pnet/msg"
 	"io"
+	"log"
 	"net"
+
+	"github.com/limoges/p2pnet/msg"
 )
 
 var (
@@ -32,6 +34,7 @@ func Run(m Module) error {
 	if len(apiAddr) > 0 {
 		fmt.Printf("Launching API on %v\n", apiAddr)
 		if listener, err := net.Listen("tcp", apiAddr); err != nil {
+			fmt.Printf("Cannot bind on %v\n", apiAddr)
 			return err
 		} else {
 			go listen(m, listener)
@@ -42,6 +45,7 @@ func Run(m Module) error {
 	if len(p2pAddr) > 0 {
 		fmt.Printf("Launching P2P on %v\n", p2pAddr)
 		if listener, err := net.Listen("tcp", p2pAddr); err != nil {
+			fmt.Printf("Cannot bind on %v\n", p2pAddr)
 			return err
 		} else {
 			go listen(m, listener)
@@ -70,13 +74,15 @@ func listen(m Module, ln net.Listener) {
 
 func handle(m Module, conn net.Conn) {
 
+	log.Printf("New connexion from %v.\n", conn.RemoteAddr())
 	for {
 		message, err := msg.ReadMessage(conn)
 		if err != nil {
 			if err == io.EOF {
+				log.Printf("Connexion with %v closed.\n", conn.RemoteAddr())
 				return
 			}
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 

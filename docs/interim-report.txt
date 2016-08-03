@@ -27,8 +27,44 @@ new connexions, while the main thread would run at startup or on a timer.
 
 2.1 Explain the message formats in the protocol
 
+Working on the Onion Forwarding/Authentication, there are only a few additionnal
+messages to add to these modules for them to work properly.
+
+Two messages that will be added are AUTH_HANDSHAKE1 and AUTH_HANDSHAKE2,
+each serving the purpose of CLIENT HELLO and SERVER HELLO in TLS/SSL.
+
+AUTH_HANDSHAKE_REQUEST is the handshake payload contained in AUTH_SESSION_HS1.
+
+The format follows the general format proposed for messages and is as such:
+0                              16                            32
++------------------------------+-----------------------------+
+|          size                |  AUTH_HANDSHAKE_REQUEST     |
++------------------------------+-----------------------------+
+|       Reserved               |             CipherSuite     |
++------------------------------+-----------------------------+
+|     RSA PKCS1v15 Encrypted Symmetric Session Key           |
++------------------------------------------------------------+
+
+AUTH_HANDSHAKE_RESPONSE is the handshake payload contained in AUTH_SESSION_HS2.
+
+0                              16                            32
++------------------------------+-----------------------------+
+|          size                |  AUTH_HANDSHAKE_RESPONSE    |
++------------------------------+-----------------------------+
+|       Reserved               |    Selected CipherSuite     |
++------------------------------+-----------------------------+
+
 
 2.2 How do your modules running on different peers authenticate?
+
+My architecture involves having an additionnal module which simply routes
+internal messages and external messages to the appropriate modules to simplify
+the sharing of addresses. Every single message would then be sent through the
+I/O module and then routed to the appropriate module based on type.
+
 2.3 How does your protocol handle exceptions?
+
+The protocol handles exceptions by resetting the session and restarting the
+handshake/tunnel building.
 
 
