@@ -5,6 +5,7 @@ by Julien Limoges
 ## Dependencies
 
 The project requires a standard installation of the Go (https://golang.org/dl/).
+
 Installation instructions can be found [here](https://golang.org/doc/install)
 
 This project has the following dependencies:
@@ -12,7 +13,7 @@ This project has the following dependencies:
     github.com/vaughan0/go-ini
 
 
-## Building/running modules
+## Building & running modules
 
 Modules are found in the module/ directory. Each modules can be ran independently.
 For example, to start the Onion Forwarding module, one can run:
@@ -28,7 +29,11 @@ Otherwise, you can build the executables using:
 Modules may depend on each other to work properly.
 
 ## Generating the necessary RSA key
-ssh-keygen -t rsa -b 4096 -m PEM
+Simply run the following command and follow the instructions.
+Note: Onion Authentication does not currently support password protected private
+keys.
+
+    ssh-keygen -t rsa -b 4096 -m PEM
 
 ## Supported features
 ### Onion Forwarding
@@ -51,7 +56,8 @@ ssh-keygen -t rsa -b 4096 -m PEM
 - AUTH_LAYER_DECRYPT
 - AUTH_LAYER_DECRYPT_RESP
 - AUTH_SESSION_CLOSE
-#### Extensions
+
+### Extensions
 - AUTH_HANDSHAKE_REQUEST
 - AUTH_HANDSHAKE_RESPONSE
 
