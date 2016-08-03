@@ -1,0 +1,90 @@
+Initial approach report
+
+1. Team description
+-------------------
+
+1.1 Team name
+-------------
+Team41
+
+1.2 Members
+-----------
+Julien Limoges
+
+1.3 Sub-project
+---------------
+Onion Forwarding, Onion Authentication
+
+2. Programming language & operating system
+------------------------------------------
+For the present project, I intend to use the programming language Go (golang.org).
+I will be developing the project on Mac OS X 10.11.
+
+The choice for programming the project using Go is a simple one: Go has, in my opinion,
+very good balance between features covering multithreading, performance, cryptography,
+and design while forgoing manual memory management which is a time consuming task.
+
+Many practical packages are available by default (golang.org/pkg/) and will allow
+rapid development as a single-member team.
+
+Another benefit of using Go, a very simple a functional build system is standard,
+and implemented in the normal compiler-tooling.
+
+3. Build system
+---------------
+Go provides it's own dependency management tool and build system. A simple shell
+script will be enough to complete the build system.
+
+
+4. Quality control
+------------------
+
+For quality control, a minimal set of tests and samples will be created given the
+limited time available for the project. Go's tooling will help with quality control
+of the code and runs automatically when compiling the project.
+
+Ideally, enough time will be available to write tests and validation across most 
+of the features.
+
+5. Libraries we will use
+------------------------
+
+For developing the UI, we will be using Cocoa and maybe Cocoa touch from Apple.
+For the system-level program, we will be using classic Posix-compliant C libraries, such as sockets.
+Audio shall be handled using SDL or libav. We are familiar with the different libraries available for such work.
+
+6. License
+----------
+
+The team will use the MIT License because of its simple mechanism. It is compatible with most licenses and
+can be used easily commercially.
+
+
+7. Team’s experience
+--------------------
+
+I have 7 years of experiences as a software engineering/developer.
+
+I've worked on performance optimization, simulations, creating back-end services
+with long-running processes, and mobile applications.
+I've also worked in quality assurance validating network interface devices, and
+improving build/release pipelines.
+My development experience spans major platforms (Linux, MacOS, Windows, Mobile, Embedded),
+with many different languages (Golang, Ruby, C, Objective-C, C++, Java) and many
+different technologies.
+
+8. Workload
+-----------
+
+I did not pair up with another team member due to my limited time in the city
+during the summer semester. I will work alone to prevent impeding my partner's
+progress with my hectic schedule.
+
+9. Issues and complaints
+------------------------
+
+The design imposes a certain architecture which is cumbersome to implement
+efficiently.
+There is no available bootstraping server, limiting interactivity with other
+potential peers.
+
