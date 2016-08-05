@@ -1,4 +1,4 @@
-package onion
+package rps
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ type RPS struct {
 	PeersByHostkey map[string]p2pnet.Peer
 }
 
-func New(conf *cfg.Configurations) (onion *Onion, err error) {
+func New(conf *cfg.Configurations) (*RPS, error) {
 
 	rps := &RPS{}
 	conf.Init(&rps.ListenAddr, moduleToken, listenAddrToken, defaultListenAddr)
@@ -58,19 +58,15 @@ func (r *RPS) Run() error {
 func (r *RPS) Handle(source net.Conn, message msg.Message) error {
 
 	switch message.(type) {
-	case msg.RPSQuery, *msg.RPSQuery:
+	case msg.RPSQuery:
 		r.ReplyWithRandomPeer(source)
-	case msg.RPSPeer, *msg.RPSPeer:
-		m := message.(msg.RPSPeer)
-		fmt.Println(m)
 	default:
-		fmt.Printf("Unhandled message:%v\n", message)
 		return p2pnet.ErrModuleDoesNotHandle
 	}
 	return nil
 }
 
-func (r *RPS) getRandomPeer() (Peer, error) {
+func (r *RPS) getRandomPeer() (p2pnet.Peer, error) {
 
 	seed := time.Now().UnixNano()
 	source := rand.NewSource(seed)
@@ -80,10 +76,10 @@ func (r *RPS) getRandomPeer() (Peer, error) {
 	i := 0
 	for key := range r.PeersByIP {
 		if i == peerNo {
-			return r.PeersByIP[key]
+			return r.PeersByIP[key], nil
 		}
 	}
-	return Peer{}, nil
+	return p2pnet.Peer{}, nil
 }
 
 func (r *RPS) ReplyWithRandomPeer(source net.Conn) error {
@@ -96,11 +92,11 @@ func (r *RPS) ReplyWithRandomPeer(source net.Conn) error {
 	}
 
 	// Send the random peer information response.
-	response := RPSQuery{
+	response := msg.RPSPeer{
 		Port:    peer.Port,
-		IPAddr:  peer.IPAddr,
 		Hostkey: peer.Hostkey,
 	}
+	copy(response.IPAddr[:], peer.IPAddr)
 
 	return msg.WriteMessage(source, response)
 }
