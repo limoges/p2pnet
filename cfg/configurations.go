@@ -3,8 +3,10 @@ package cfg
 import (
 	"errors"
 	"fmt"
-	"github.com/vaughan0/go-ini"
+	"reflect"
 	"strconv"
+
+	"github.com/vaughan0/go-ini"
 )
 
 const (
@@ -59,7 +61,7 @@ func (c Configurations) Get(data interface{}, section string, key string) bool {
 		}
 		*data = intValue
 	default:
-		panic(fmt.Sprintf("handling for %v not implemented", data))
+		panic(fmt.Sprintf("handling for %v not implemented", reflect.TypeOf(data)))
 	}
 	return ok
 }

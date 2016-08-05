@@ -126,8 +126,7 @@ func (m GossipValidation) Valid() bool {
 func (m *GossipValidation) SetValid(valid bool) {
 	if valid {
 		m.Reserved = 0x1
-	}
-	else {
+	} else {
 		m.Reserved = 0x0
 	}
 }
@@ -142,7 +141,7 @@ func NewGossipValidation(data []byte) (GossipValidation, error) {
 	var reader *bytes.Reader
 	var err error
 
-	m = GossipNotification{}
+	m = GossipValidation{}
 	reader = bytes.NewReader(data)
 
 	if err = binary.Read(reader, binary.BigEndian, &m.MessageId); err != nil {
