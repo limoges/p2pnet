@@ -3,6 +3,7 @@ package gossip
 import (
 	"net"
 
+	"github.com/limoges/p2pnet"
 	"github.com/limoges/p2pnet/cfg"
 	"github.com/limoges/p2pnet/msg"
 )
@@ -60,6 +61,6 @@ func (m *Gossip) Handle(source net.Conn, message msg.Message) error {
 
 	switch message.(type) {
 	default:
-		return p2pnet.ErrModuleDosNotHandle
+		return p2pnet.ErrModuleDoesNotHandle
 	}
 }
