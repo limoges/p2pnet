@@ -1,0 +1,4 @@
+Loaded configuration from: configs/peer3.ini
+Starting module 'GOSSIP'
+Launching API on 127.0.0.1:10002
+Launching P2P on 127.0.0.1:10001

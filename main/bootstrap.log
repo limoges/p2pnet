@@ -1,0 +1,3 @@
+Loaded configuration from: configs/peer3.ini
+Could not read necessary keys from './keys/peers3.pem'.
+open ./keys/peers3.pem: no such file or directory

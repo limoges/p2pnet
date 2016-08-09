@@ -1,0 +1,5 @@
+Loaded configuration from: configs/peer3.ini
+Could not find section.key = NSE.history_length
+Could not find section.key = NSE.period
+Starting module 'NSE'
+Launching API on 127.0.0.1:10012

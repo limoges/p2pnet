@@ -1,0 +1,5 @@
+Loaded configuration from: configs/peer3.ini
+Could not find section.key = RPS.bootstrap_address
+Starting module 'RPS'
+Launching API on 127.0.0.1:10022
+Launching P2P on 127.0.0.1:10021
