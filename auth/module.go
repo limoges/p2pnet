@@ -5,11 +5,8 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"math/rand"
 	"net"
-	"time"
 
 	"github.com/limoges/p2pnet"
 	"github.com/limoges/p2pnet/cfg"
@@ -21,9 +18,12 @@ const (
 	// The token identifying the module's configurations.
 	ModuleToken = "ONION_AUTHENTICATION"
 	// The token identifying the port to bind to.
-	ApiAddrToken   = "api_address"
+	ApiAddrToken = "api_address"
+	// The default API address to bind to.
 	DefaultApiAddr = "127.0.0.1:7005"
-	HostkeyToken   = "HOSTKEY"
+	// The configurtion token providing the module with the hostkey file.
+	HostkeyToken = "HOSTKEY"
+	// The default location of the hostkey file.
 	DefaultHostkey = "hostkey.pem"
 )
 
@@ -31,34 +31,32 @@ var (
 	ErrNoBlockFound = errors.New("No block found in key file")
 )
 
-type Session struct {
-	Key []byte
-}
-
 // This module only communicates with the Onion module.
 type Auth struct {
-	// HostkeyPath should refer to a file which contains a RSA private key.
-	HostkeyPath string
-	Keys        *Encryption
+	PrivateKey *rsa.PrivateKey
 
-	Sessions   map[p2pnet.SessionId]Session
+	Sessions   map[uint32]*Session
 	APIAddr    string
 	ListenAddr string
 }
 
-func New(conf *cfg.Configurations) (auth *Auth, err error) {
+func New(conf *cfg.Configurations) (*Auth, error) {
+
+	var auth *Auth
+	var priv *rsa.PrivateKey
+	var err error
+	var hostkeyPath string
 
 	auth = &Auth{}
-	conf.Init(&auth.HostkeyPath, "", HostkeyToken, DefaultHostkey)
+	conf.Init(&hostkeyPath, "", HostkeyToken, DefaultHostkey)
 	conf.Init(&auth.APIAddr, ModuleToken, ApiAddrToken, DefaultApiAddr)
 
-	keys, err := ReadKeys(auth.HostkeyPath)
-	if err != nil {
-		fmt.Printf("Could not read necessary keys from '%v'.\n", auth.HostkeyPath)
+	if priv, err = ReadPEMPrivateKey(hostkeyPath); err != nil {
+		fmt.Printf("Could not read necessary keys from '%v'.\n", hostkeyPath)
 		return nil, err
 	}
-	auth.Keys = keys
-	auth.Sessions = make(map[p2pnet.SessionId]Session)
+	auth.PrivateKey = priv
+	auth.Sessions = make(map[uint32]*Session)
 	return auth, nil
 }
 
@@ -82,188 +80,286 @@ func (a *Auth) Handle(source net.Conn, message msg.Message) error {
 
 	switch message.(type) {
 	case msg.AuthSessionStart:
-		// Upon reception of a AUTH_SESSION_START from the Onion,
-		// we generate the Handshake1.
 		m := message.(msg.AuthSessionStart)
-		a.StartSession(source, m.Hostkey)
+		return a.handleSessionStart(source, m)
 	case msg.AuthSessionIncomingHS1:
 		m := message.(msg.AuthSessionIncomingHS1)
-		a.RespondIncomingHS1(source, m.Hostkey, m.HandshakePayload)
+		return a.handleSessionIncomingHS1(source, m)
 	case msg.AuthSessionIncomingHS2:
-		fmt.Println("AuthSessionIncomingHS2")
 		m := message.(msg.AuthSessionIncomingHS2)
-		//a.RespondIncomingHS2(source, m)
-		fmt.Println(m.TypeId())
+		return a.handleSessionIncomingHS2(source, m)
+	case msg.AuthSessionClose:
+		m := message.(msg.AuthSessionClose)
+		return a.handleSessionClose(source, m)
+	case msg.AuthLayerEncrypt:
+		m := message.(msg.AuthLayerEncrypt)
+		return a.handleLayerEncrypt(source, m)
+	case msg.AuthLayerDecrypt:
+		m := message.(msg.AuthLayerDecrypt)
+		return a.handleLayerDecrypt(source, m)
 	default:
-		fmt.Printf("Unhandled message: %v\n", msg.Identifier(message.TypeId()))
-		return p2pnet.ErrModuleDoesNotHandle
+		return a.handleUnknown(source, message)
 	}
-
 	return nil
 }
 
-func (a *Auth) generateUnusedSessionID() p2pnet.SessionId {
+func (a *Auth) handleSessionStart(source net.Conn, m msg.AuthSessionStart) error {
 
-	// With the estimated number of simultaneous connexion very low,
-	// it is suggested to use a 32 bits session ID which will have
-	// about odds of a collision in about 1 in 10 millions for 30 or
-	// simultaneous sessions.
-	// Therefore, using the time as a random number generator seed seems
-	// perfectly fine.
+	var sessionHS1 *msg.AuthSessionHS1
+	var err error
 
-	seed := time.Now().UnixNano()
-	source := rand.NewSource(seed)
-	rng := rand.New(source)
-
-	// We generate a random number and then try again until we can find
-	// a number that is not currently in use. Again, there shouldn't be too
-	// many collisions locally.
-	sessionID := p2pnet.SessionId(rng.Uint32())
-	count := 0
-	for {
-		if _, alreadyInUse := a.Sessions[sessionID]; !alreadyInUse {
-			break
-		}
-		count = count + 1
-		sessionID = p2pnet.SessionId(rng.Uint32())
+	if sessionHS1, err = a.StartSession(m.Hostkey); err != nil {
+		return err
 	}
-	return sessionID
+	return msg.Send(source, sessionHS1)
 }
 
-func (a *Auth) StartSession(conn net.Conn, hostkey []byte) error {
+func (a *Auth) handleSessionIncomingHS1(source net.Conn, m msg.AuthSessionIncomingHS1) error {
 
-	var sessionId p2pnet.SessionId
-	var hs1 msg.AuthSessionHS1
+	var sessionHS2 *msg.AuthSessionHS2
+	var err error
+
+	if sessionHS2, err = a.IncomingHandshake1(m.Hostkey, m.HandshakePayload); err != nil {
+		return err
+	}
+	return msg.Send(source, sessionHS2)
+}
+
+func (a *Auth) handleSessionIncomingHS2(source net.Conn, m msg.AuthSessionIncomingHS2) error {
+
+	var err error
+
+	if err = a.IncomingHandshake2(m.SessionId, m.Payload); err != nil {
+		return msg.Send(source, msg.AuthSessionDeclined{})
+	}
+
+	return msg.Send(source, msg.AuthSessionConfirmed{})
+}
+
+func (a *Auth) handleSessionClose(source net.Conn, m msg.AuthSessionClose) error {
+
+	var id uint32
+	id = m.SessionId
+	a.CloseSession(id)
+	return nil
+}
+
+func (a *Auth) handleLayerEncrypt(source net.Conn, m msg.AuthLayerEncrypt) error {
+
+	var session *Session
+	var present bool
+	var payload []byte
+	var encrypted []byte
+	var err error
+
+	payload = make([]byte, len(m.Payload))
+	copy(payload, m.Payload)
+
+	for _, sessionId := range m.SessionIds {
+		if session, present = a.Sessions[sessionId]; !present {
+			return errors.New(fmt.Sprintf("Session %v does not exist.", sessionId))
+		}
+		if encrypted, err = session.Encrypt(payload); err != nil {
+			return errors.New("Could not encrypt payload")
+		}
+		payload = make([]byte, len(encrypted))
+		copy(payload, encrypted)
+	}
+
+	var response msg.AuthLayerEncryptResp
+	response = msg.AuthLayerEncryptResp{}
+	response.RequestId = m.RequestId
+	response.EncryptedPayload = make([]byte, len(payload))
+	copy(response.EncryptedPayload, payload)
+
+	return msg.Send(source, response)
+}
+
+func (a *Auth) handleLayerDecrypt(source net.Conn, m msg.AuthLayerDecrypt) error {
+
+	var session *Session
+	var present bool
+	var payload []byte
+	var decrypted []byte
+	var err error
+
+	payload = make([]byte, len(m.EncryptedPayload))
+	copy(payload, m.EncryptedPayload)
+
+	for i := len(m.SessionIds) - 1; i >= 0; i-- {
+		sessionId := m.SessionIds[i]
+
+		if session, present = a.Sessions[sessionId]; !present {
+			return errors.New(fmt.Sprintf("Session %v does not exist.", sessionId))
+		}
+		if decrypted, err = session.Decrypt(payload); err != nil {
+			return errors.New("Could not decrypt payload")
+		}
+		payload = make([]byte, len(decrypted))
+		copy(payload, decrypted)
+	}
+
+	var response msg.AuthLayerDecryptResp
+	response = msg.AuthLayerDecryptResp{}
+	response.RequestId = m.RequestId
+	response.DecryptedPayload = make([]byte, len(payload))
+	copy(response.DecryptedPayload, payload)
+
+	return msg.Send(source, response)
+}
+
+func (a *Auth) handleUnknown(source net.Conn, m msg.Message) error {
+
+	fmt.Printf("Unhandled message: %v\n", msg.Identifier(m.TypeId()))
+	return p2pnet.ErrModuleDoesNotHandle
+}
+
+func (a *Auth) StartSession(hostkey []byte) (*msg.AuthSessionHS1, error) {
+
 	var pub *rsa.PublicKey
 	var err error
-	var key []byte
-	var ciphertext []byte
-	var session Session
-	var buf *bytes.Buffer
+	var session *Session
+	var handshake1 *msg.AuthSessionHS1
 
-	// We generate a session id which is not currently being used.
-	sessionId = a.generateUnusedSessionID()
-
-	// Parse the given hostkey into a RSA Public Key
+	// First, check that the hostkey is a valid rsa.PublicKey
 	if pub, err = ParsePublicKey(hostkey); err != nil {
+		log.Println("Could not parse hostkey into public key format.")
+		return nil, err
+	}
+
+	// Start creating the session.
+	if session, err = NewSession(a); err != nil {
+		log.Println("Could not create session.")
+		return nil, err
+	}
+
+	if handshake1, err = session.CreateHandshake1(pub); err != nil {
+		return nil, err
+	}
+
+	session.RemotePublicKey = pub
+	a.Sessions[session.Id] = session
+	return handshake1, nil
+}
+
+func (a *Auth) IncomingHandshake1(hostkey []byte, payload []byte) (*msg.AuthSessionHS2, error) {
+
+	var pub *rsa.PublicKey
+	var err error
+	var handshake1 *msg.AuthHandshake1
+	var session *Session
+	var handshake2 *msg.AuthSessionHS2
+
+	// Check that the remote hostkey is a valid rsa.PublicKey
+	if pub, err = ParsePublicKey(hostkey); err != nil {
+		log.Println("Could not parse hostkey into public key format.")
+		return nil, err
+	}
+
+	// Parse the payload for the handshake message
+	if handshake1, err = unloadHandshake1(payload); err != nil {
+		log.Println("Could not parse handshake payload.")
+		return nil, err
+	}
+
+	if session, err = NewIncomingSession(a, handshake1.EncryptedKey[:], handshake1.EncryptedHMAC[:]); err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	if handshake2, err = session.CreateHandshake2(pub); err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	session.RemotePublicKey = pub
+	a.Sessions[session.Id] = session
+	return handshake2, nil
+}
+
+func (a *Auth) IncomingHandshake2(id uint32, payload []byte) error {
+
+	var session *Session
+	var ok bool
+	var err error
+	var handshake2 *msg.AuthHandshake2
+
+	// Check if the session exists
+	if session, ok = a.Sessions[id]; !ok {
+		return errors.New("Session does not exist")
+	}
+
+	// Validate the handshake payload
+	if handshake2, err = unloadHandshake2(payload); err != nil {
+		log.Println("Could not parse handshake payload.")
 		return err
 	}
 
-	// Generate a symmetric key to share. This is our payload.
-	if key, err = GenerateNewSymmetricKey(); err != nil {
+	if err = session.DecryptRemoteHMAC(a.PrivateKey, handshake2.EncryptedHMAC[:]); err != nil {
 		return err
 	}
+	return nil
+}
 
-	// Encrypt the given key using asymmetric encryption.
-	if ciphertext, err = AsymmetricEncrypt(pub, key); err != nil {
-		return err
-	}
+func buildPayload(m msg.Message) ([]byte, error) {
+
+	var buf *bytes.Buffer
+	var err error
 
 	buf = new(bytes.Buffer)
-	handshake1 := msg.AuthHandshake1{
-		Cipher: ciphertext,
+	if err = msg.Write(buf, m); err != nil {
+		return nil, err
 	}
 
-	if err = msg.WriteMessage(buf, handshake1); err != nil {
-		return err
-	}
-
-	// Send the response to the session start.
-	hs1 = msg.AuthSessionHS1{
-		SessionId:        uint32(sessionId),
-		HandshakePayload: buf.Bytes(),
-	}
-
-	// Store the session's key.
-	session = Session{
-		Key: key,
-	}
-
-	// Associate the session ID with a peer's hostkey
-	a.Sessions[sessionId] = session
-
-	log.Println("Sending session handshake1 to onion...")
-	msg.WriteMessage(conn, hs1)
-
-	return nil
+	return buf.Bytes(), nil
 }
 
-func (a *Auth) RespondIncomingHS1(conn net.Conn, hostkey, payload []byte) error {
+func unloadHandshake1(payload []byte) (*msg.AuthHandshake1, error) {
 
-	var key []byte
-	var err error
+	var reader *bytes.Reader
 	var message msg.Message
-	var hs1 msg.AuthHandshake1
-	var handshake2 msg.AuthHandshake2
-	var hs2 msg.AuthSessionHS2
-	var reader io.Reader
-	var session Session
+	var handshake1 msg.AuthHandshake1
+	var err error
 	var ok bool
-	var sessionId p2pnet.SessionId
-	var pub *rsa.PublicKey
-	var ciphertext []byte
-	var buf *bytes.Buffer
 
 	// First read the message sent through the payload.
 	reader = bytes.NewReader(payload)
 
-	if message, err = msg.ReadMessage(reader); err != nil {
-		return err
+	if message, err = msg.Read(reader); err != nil {
+		return nil, err
 	}
 
 	// We expect a AuthHandshake1 message in the payload.
-	if hs1, ok = message.(msg.AuthHandshake1); !ok {
-		return errors.New("Unexpected handshake payload")
+	if handshake1, ok = message.(msg.AuthHandshake1); !ok {
+		return nil, errors.New("Unexpected handshake payload")
 	}
 
-	// We then try to get the session key presented by the peer, using our
-	// private key to decrypt the cipher containing the session key.
-	if key, err = AsymmetricDecrypt(a.Keys.PrivateKey, hs1.Cipher); err != nil {
-		return err
-	}
-
-	// We then generate our own internal session ID which we'll use to refer to
-	// this session.
-	sessionId = a.generateUnusedSessionID()
-
-	session = Session{
-		Key: key,
-	}
-
-	// Store the key into it's associated session.
-	a.Sessions[sessionId] = session
-
-	if pub, err = ParsePublicKey(hostkey); err != nil {
-		return err
-	}
-
-	if ciphertext, err = AsymmetricEncrypt(pub, key); err != nil {
-		return err
-	}
-
-	handshake2 = msg.AuthHandshake2{
-		Cipher: ciphertext,
-	}
-
-	buf = new(bytes.Buffer)
-
-	if err = msg.WriteMessage(buf, handshake2); err != nil {
-		return err
-	}
-
-	hs2 = msg.AuthSessionHS2{
-		SessionId:        uint32(sessionId),
-		HandshakePayload: buf.Bytes(),
-	}
-
-	// Encode the response message
-	if err = msg.WriteMessage(conn, hs2); err != nil {
-		return err
-	}
-
-	return nil
+	return &handshake1, nil
 }
 
-func (a *Auth) CloseSession(id p2pnet.SessionId) {
-	delete(a.Sessions, id)
+func unloadHandshake2(payload []byte) (*msg.AuthHandshake2, error) {
+
+	var reader *bytes.Reader
+	var message msg.Message
+	var handshake2 msg.AuthHandshake2
+	var err error
+	var ok bool
+
+	// First read the message sent through the payload.
+	reader = bytes.NewReader(payload)
+
+	if message, err = msg.Read(reader); err != nil {
+		return nil, err
+	}
+
+	// We expect a AuthHandshake1 message in the payload.
+	if handshake2, ok = message.(msg.AuthHandshake2); !ok {
+		return nil, errors.New("Unexpected handshake payload")
+	}
+
+	return &handshake2, nil
+}
+
+func (a *Auth) CloseSession(id uint32) {
+	log.Println("CloseSession not implemented")
 }

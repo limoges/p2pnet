@@ -154,16 +154,184 @@ func NewAuthSessionIncomingHS2(data []byte) (AuthSessionIncomingHS2, error) {
 }
 
 type AuthLayerEncrypt struct {
+	Layers     uint8
+	Reserved   uint8
+	RequestId  uint16
+	SessionIds []uint32
+	Payload    []byte
+}
+
+func (m AuthLayerEncrypt) TypeId() uint16 {
+	return AUTH_LAYER_ENCRYPT
+}
+
+func NewAuthLayerEncrypt(data []byte) (AuthLayerEncrypt, error) {
+
+	var m AuthLayerEncrypt
+	var reader *bytes.Reader
+	var err error
+
+	m = AuthLayerEncrypt{}
+	reader = bytes.NewReader(data)
+
+	if err = binary.Read(reader, binary.BigEndian, &m.Layers); err != nil {
+		return m, err
+	}
+	if err = binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
+		return m, err
+	}
+	if err = binary.Read(reader, binary.BigEndian, &m.RequestId); err != nil {
+		return m, err
+	}
+
+	m.SessionIds = make([]uint32, m.Layers)
+	for i := 0; i < int(m.Layers); i++ {
+		if err = binary.Read(reader, binary.BigEndian, &m.SessionIds[i]); err != nil {
+			return m, err
+		}
+	}
+
+	m.Payload = make([]byte, reader.Len())
+	if _, err = io.ReadFull(reader, m.Payload); err != nil {
+		return m, err
+	}
+
+	return m, nil
 }
 
 type AuthLayerEncryptResp struct {
+	RequestId        uint16
+	Reserved         uint16
+	EncryptedPayload []byte
 }
 
-type AuthLayerDecryptResp struct {
+func (m AuthLayerEncryptResp) TypeId() uint16 {
+	return AUTH_LAYER_ENCRYPT_RESP
+}
+
+func NewAuthLayerEncryptResp(data []byte) (AuthLayerEncryptResp, error) {
+
+	var m AuthLayerEncryptResp
+	var reader *bytes.Reader
+	var err error
+
+	m = AuthLayerEncryptResp{}
+	reader = bytes.NewReader(data)
+
+	if err = binary.Read(reader, binary.BigEndian, &m.RequestId); err != nil {
+		return m, err
+	}
+	if err = binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
+		return m, err
+	}
+
+	m.EncryptedPayload = make([]byte, reader.Len())
+	if _, err = io.ReadFull(reader, m.EncryptedPayload); err != nil {
+		return m, err
+	}
+
+	return m, nil
 }
 
 type AuthLayerDecrypt struct {
+	Layers           uint8
+	Reserved         uint8
+	RequestId        uint16
+	SessionIds       []uint32
+	EncryptedPayload []byte
+}
+
+func (m AuthLayerDecrypt) TypeId() uint16 {
+	return AUTH_LAYER_DECRYPT
+}
+
+func NewAuthLayerDecrypt(data []byte) (AuthLayerDecrypt, error) {
+
+	var m AuthLayerDecrypt
+	var reader *bytes.Reader
+	var err error
+
+	m = AuthLayerDecrypt{}
+	reader = bytes.NewReader(data)
+
+	if err = binary.Read(reader, binary.BigEndian, &m.Layers); err != nil {
+		return m, err
+	}
+	if err = binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
+		return m, err
+	}
+	if err = binary.Read(reader, binary.BigEndian, &m.RequestId); err != nil {
+		return m, err
+	}
+
+	m.SessionIds = make([]uint32, m.Layers)
+	for i := 0; i < int(m.Layers); i++ {
+		if err = binary.Read(reader, binary.BigEndian, &m.SessionIds[i]); err != nil {
+			return m, err
+		}
+	}
+
+	m.EncryptedPayload = make([]byte, reader.Len())
+	if _, err = io.ReadFull(reader, m.EncryptedPayload); err != nil {
+		return m, err
+	}
+
+	return m, nil
+}
+
+type AuthLayerDecryptResp struct {
+	RequestId        uint16
+	Reserved         uint16
+	DecryptedPayload []byte
+}
+
+func (m AuthLayerDecryptResp) TypeId() uint16 {
+	return AUTH_LAYER_DECRYPT_RESP
+}
+
+func NewAuthLayerDecryptResp(data []byte) (AuthLayerDecryptResp, error) {
+
+	var m AuthLayerDecryptResp
+	var reader *bytes.Reader
+	var err error
+
+	m = AuthLayerDecryptResp{}
+	reader = bytes.NewReader(data)
+
+	if err = binary.Read(reader, binary.BigEndian, &m.RequestId); err != nil {
+		return m, err
+	}
+	if err = binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
+		return m, err
+	}
+
+	m.DecryptedPayload = make([]byte, reader.Len())
+	if _, err = io.ReadFull(reader, m.DecryptedPayload); err != nil {
+		return m, err
+	}
+
+	return m, nil
 }
 
 type AuthSessionClose struct {
+	SessionId uint32
+}
+
+func (m AuthSessionClose) TypeId() uint16 {
+	return AUTH_SESSION_CLOSE
+}
+
+func NewAuthSessionClose(data []byte) (AuthSessionClose, error) {
+
+	var m AuthSessionClose
+	var reader *bytes.Reader
+	var err error
+
+	m = AuthSessionClose{}
+	reader = bytes.NewReader(data)
+
+	if err = binary.Read(reader, binary.BigEndian, &m.SessionId); err != nil {
+		return m, err
+	}
+	return m, nil
 }

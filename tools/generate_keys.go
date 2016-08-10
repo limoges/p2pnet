@@ -16,6 +16,7 @@ func main() {
 
 	var priv *rsa.PrivateKey
 	var data []byte
+	var hostkey []byte
 	var err error
 
 	fmt.Println("Generating new public-private key pair...")
@@ -26,6 +27,12 @@ func main() {
 
 	fmt.Println("Encoding keys to PEM...")
 	data = auth.EncodePEM(priv)
+
+	fmt.Println("Getting hostkey as DER...")
+	if hostkey, err = auth.GetPublicKeyAsDER(priv.PublicKey); err != nil {
+		panic(err)
+	}
+	fmt.Printf("Hostkey length is %v\n", len(hostkey))
 
 	fmt.Println("Writing keys to file...")
 	if err = ioutil.WriteFile("keys.pem", data, 0777); err != nil {

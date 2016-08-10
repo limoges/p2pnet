@@ -1,82 +1,79 @@
 package client
 
 import (
-	"fmt"
+	"github.com/limoges/p2pnet"
 	"github.com/limoges/p2pnet/auth"
 	"github.com/limoges/p2pnet/cfg"
-	"github.com/limoges/p2pnet/msg"
-	"io"
-	"net"
+	"github.com/limoges/p2pnet/onion"
 )
 
 type Client struct {
-	APIAddr    string
 	ListenAddr string
-	Auth       *auth.Auth
+	Config     *cfg.Configurations
+
+	ModAuth  *auth.Auth
+	ModOnion *onion.Onion
+	// ModRPS    *rps.RPS
+	// ModNSE    *nse.NSE
+	// ModGossip *gossip.Gossip
+	Modules []p2pnet.Module
 }
 
-func New(conf *cfg.Configurations) (client *Client, err error) {
+func New(filename string) (*Client, error) {
+
+	var config *cfg.Configurations
+	var client *Client
+	var err error
 
 	client = &Client{}
-	conf.Init(&client.APIAddr, "GOSSIP", "api_address", "127.0.0.1:7011")
-	conf.Init(&client.ListenAddr, "GOSSIP", "listen_address", "127.0.0.1:6011")
 
-	// Load hostkey into memory
-	auth, err := auth.New(conf)
-	if err != nil {
-		fmt.Println(err)
+	if config, err = cfg.New(filename); err != nil {
 		return nil, err
 	}
-	client.Auth = auth
+	client.Config = config
+
+	if client.ModAuth, err = auth.New(config); err != nil {
+		return nil, err
+	}
+
+	if client.ModOnion, err = onion.New(config); err != nil {
+		return nil, err
+	}
+
+	//if client.modRPS, err = rps.New(config); err != nil {
+	//	return nil, err
+	//}
+
+	//if client.modNSE, err = nse.New(config); err != nil {
+	//	return nil, err
+	//}
+
+	//if client.modGossip, err = gossip.New(config); err != nil {
+	//	return nil, err
+	//}
+
+	client.Modules = []p2pnet.Module{
+		client.ModAuth,
+		client.ModOnion,
+		// client.modRPS,
+		// client.modNSE,
+		// client.modGossip,
+	}
 
 	return client, nil
 }
 
 func (c *Client) Run() error {
 
-	apiListener, err := net.Listen("tcp", c.APIAddr)
-	if err != nil {
-		fmt.Println(err)
-		return err
+	// peersListener, err := net.Listen("tcp", c.ListenAddr)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return err
+	// }
+
+	for _, module := range c.Modules {
+		go p2pnet.Run(module)
 	}
 
-	peersListener, err := net.Listen("tcp", c.ListenAddr)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	go c.listenAPI(apiListener)
-	go c.listenPeers(peersListener)
-
-	for {
-
-		// Start the active stuff, like going checking on the bootstrapper.
-	}
-}
-
-func (c *Client) listenAPI(ln net.Listener) {
-
-	fmt.Printf("Launched API listener on %v\n", ln.Addr())
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			go c.handle(conn)
-		}
-	}
-}
-
-func (c *Client) listenPeers(ln net.Listener) {
-
-	fmt.Printf("Launched peer listener on %v\n", ln.Addr())
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			go c.handle(conn)
-		}
-	}
+	select {}
 }

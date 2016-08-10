@@ -1,0 +1,7 @@
+# Communication protocol for the Onion Authentication
+
+The authentication module receives a AUTH_SESSION_START message containing
+the remote hop's hostkey in DER format.
+
+The hostkey corresponds to the public key part of an RSA-generated 4096 bits
+(512 bytes) private key in DER format.

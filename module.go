@@ -27,14 +27,13 @@ type Module interface {
 
 func Run(m Module) error {
 
-	fmt.Printf("Starting module '%v'\n", m.Name())
 	// We launch the listeners, if they are supported by the module.
 	apiAddr, p2pAddr := m.Addresses()
 
 	if len(apiAddr) > 0 {
-		fmt.Printf("Launching API on %v\n", apiAddr)
+		fmt.Printf("%20v: %v: Listening API\n", m.Name(), apiAddr)
 		if listener, err := net.Listen("tcp", apiAddr); err != nil {
-			fmt.Printf("Cannot bind on %v\n", apiAddr)
+			fmt.Printf("%v: Cannot bind on %v\n", m.Name(), apiAddr)
 			return err
 		} else {
 			go listen(m, listener)
@@ -43,9 +42,9 @@ func Run(m Module) error {
 	}
 
 	if len(p2pAddr) > 0 {
-		fmt.Printf("Launching P2P on %v\n", p2pAddr)
+		fmt.Printf("%20v: %v: Listening P2P\n", m.Name(), p2pAddr)
 		if listener, err := net.Listen("tcp", p2pAddr); err != nil {
-			fmt.Printf("Cannot bind on %v\n", p2pAddr)
+			fmt.Printf("%v: Cannot bind on %v\n", m.Name(), p2pAddr)
 			return err
 		} else {
 			go listen(m, listener)
@@ -74,17 +73,24 @@ func listen(m Module, ln net.Listener) {
 
 func handle(m Module, conn net.Conn) {
 
-	log.Printf("New connexion from %v.\n", conn.RemoteAddr())
+	// fmt.Printf("%v: New connexion from %v.\n", m.Name(), conn.RemoteAddr())
 	for {
-		message, err := msg.ReadMessage(conn)
+		message, err := msg.Receive(conn)
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("Connexion with %v closed.\n", conn.RemoteAddr())
+				// fmt.Printf("%v: Connexion with %v closed.\n", m.Name(), conn.RemoteAddr())
 				return
 			}
 			log.Println(err)
 			return
 		}
+
+		// fmt.Printf("%20v: %v: rcv %25v from %v\n",
+		// 	m.Name(),
+		// 	conn.LocalAddr(),
+		// 	msg.Identifier(message.TypeId()),
+		// 	conn.RemoteAddr(),
+		// )
 
 		if err := m.Handle(conn, message); err != nil {
 			fmt.Println(err)

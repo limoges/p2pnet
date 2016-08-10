@@ -85,6 +85,10 @@ func Identifier(messageType uint16) string {
 		return "AUTH_HANDSHAKE1"
 	case AUTH_HANDSHAKE2:
 		return "AUTH_HANDSHAKE2"
+	case AUTH_SESSION_CONFIRMED:
+		return "AUTH_SESSION_CONFIRMED"
+	case AUTH_SESSION_DECLINED:
+		return "AUTH_SESSION_DECLINED"
 	default:
 		return "UNKNOWN_MESSAGE"
 	}
@@ -191,8 +195,8 @@ func ConvertFromGeneric(generic GenericMessage) (Message, error) {
 	// 	m = &RPSPeer{}
 	case ONION_TUNNEL_BUILD:
 		m, err = NewOnionTunnelBuild(generic.Content)
-	// case ONION_TUNNEL_READY:
-	// 	m = &OnionTunnelReady{}
+	case ONION_TUNNEL_READY:
+		m, err = NewOnionTunnelReady(generic.Content)
 	// case ONION_TUNNEL_INCOMING:
 	// 	m = &OnionTunnelIncoming{}
 	// case ONION_TUNNEL_DESTROY:
@@ -213,20 +217,24 @@ func ConvertFromGeneric(generic GenericMessage) (Message, error) {
 		m, err = NewAuthSessionHS2(generic.Content)
 	case AUTH_SESSION_INCOMING_HS2:
 		m, err = NewAuthSessionIncomingHS2(generic.Content)
-		// case AUTH_LAYER_ENCRYPT:
-		// 	m = &AuthLayerEncrypt{}
-		// case AUTH_LAYER_ENCRYPT_RESP:
-		// 	m = &AuthLayerEncryptResp{}
-		// case AUTH_LAYER_DECRYPT:
-		// 	m = &AuthLayerDecrypt{}
-		// case AUTH_LAYER_DECRYPT_RESP:
-		// 	m = &AuthLayerDecryptResp{}
-		// case AUTH_SESSION_CLOSE:
-		// 	m = &AuthSessionClose{}
+	case AUTH_LAYER_ENCRYPT:
+		m, err = NewAuthLayerEncrypt(generic.Content)
+	case AUTH_LAYER_ENCRYPT_RESP:
+		m, err = NewAuthLayerEncryptResp(generic.Content)
+	case AUTH_LAYER_DECRYPT:
+		m, err = NewAuthLayerDecrypt(generic.Content)
+	case AUTH_LAYER_DECRYPT_RESP:
+		m, err = NewAuthLayerDecryptResp(generic.Content)
+	case AUTH_SESSION_CLOSE:
+		m, err = NewAuthSessionClose(generic.Content)
 	case AUTH_HANDSHAKE1:
 		m, err = NewAuthHandshake1(generic.Content)
 	case AUTH_HANDSHAKE2:
 		m, err = NewAuthHandshake2(generic.Content)
+	case AUTH_SESSION_CONFIRMED:
+		m, err = NewAuthSessionConfirmed(generic.Content)
+	case AUTH_SESSION_DECLINED:
+		m, err = NewAuthSessionDeclined(generic.Content)
 	default:
 		fmt.Printf("Type cannot be converted from generic: %v\n", generic.Type)
 		panic("Need to implement in msg/messages.go")

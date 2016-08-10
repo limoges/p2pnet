@@ -1,108 +1,28 @@
 package auth
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
-	"fmt"
-	"io/ioutil"
+	"hash"
+	"io"
 )
 
 const (
 	RSAPrivateKeyType                = "RSA PRIVATE KEY"
 	RSAPublicKeyType                 = "RSA PUBLIC KEY"
 	DefaultAsymmetricKeyLengthInBits = 4096
-	DefaultSymmetricKeyLengthInBytes = 64
+	DefaultSymmetricKeyLengthInBytes = 16
 )
 
 type Encryption struct {
 	Hostkey    []byte
 	PrivateKey *rsa.PrivateKey
-}
-
-// Read a PEM-formatted file into memory.
-func ReadKeys(filepath string) (crypto *Encryption, err error) {
-
-	// Read the file.
-	bytes, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Decode the PEM-formatted data into a DER block.
-	block, err := findPrivateKeyBlock(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if the PEM private key is password protected.
-	if x509.IsEncryptedPEMBlock(block) {
-		panic("Cannot handle encrypted keys for now")
-	}
-
-	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		fmt.Println(err)
-		panic("Cannot parse private key")
-		return nil, err
-	}
-
-	hostkey, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		fmt.Println("Could not marshal public key into hostkey.")
-		return nil, err
-	}
-
-	crypto = &Encryption{
-		PrivateKey: privateKey,
-		Hostkey:    hostkey,
-	}
-	return crypto, nil
-}
-
-func findPrivateKeyBlock(data []byte) (block *pem.Block, err error) {
-
-	bytes := data
-	for {
-		block, rest := pem.Decode(bytes)
-		if block == nil {
-			return nil, ErrNoBlockFound
-		}
-
-		// Check if the block is a private key block.
-		if block.Type == RSAPrivateKeyType {
-			return block, nil
-		}
-		bytes = rest
-	}
-}
-
-func EncodePEM(priv *rsa.PrivateKey) []byte {
-
-	var block *pem.Block
-	var derBytes []byte
-	var pemBytes []byte
-
-	derBytes = x509.MarshalPKCS1PrivateKey(priv)
-
-	block = &pem.Block{
-		Type:  RSAPrivateKeyType,
-		Bytes: derBytes,
-	}
-
-	pemBytes = pem.EncodeToMemory(block)
-	return pemBytes
-}
-
-func ParseHostkey(hostkey []byte) (publicKey *rsa.PublicKey, err error) {
-
-	pub, err := x509.ParsePKIXPublicKey(hostkey)
-
-	fmt.Println(pub)
-
-	return nil, err
 }
 
 func GenerateKey() (*rsa.PrivateKey, error) {
@@ -164,20 +84,115 @@ func GenerateNewSymmetricKey() ([]byte, error) {
 	return key, nil
 }
 
-func AsymmetricEncrypt(pub *rsa.PublicKey, msg []byte) ([]byte, error) {
+func CheckMAC(message, messageMAC, key []byte) bool {
+	var mac hash.Hash
+	var expectedMAC []byte
 
-	var ciphertext []byte
-	var err error
-
-	ciphertext, err = rsa.EncryptPKCS1v15(rand.Reader, pub, msg)
-	return ciphertext, err
+	mac = hmac.New(sha256.New, key)
+	mac.Write(message)
+	expectedMAC = mac.Sum(nil)
+	return hmac.Equal(messageMAC, expectedMAC)
 }
 
-func AsymmetricDecrypt(priv *rsa.PrivateKey, ciphertext []byte) ([]byte, error) {
+func ComputeMAC(message, key []byte) []byte {
 
-	var out []byte
+	var mac hash.Hash
+
+	mac = hmac.New(sha256.New, key)
+	mac.Write(message)
+	return mac.Sum(nil)
+}
+
+func EncryptAES(key, plaintext []byte) ([]byte, error) {
+
+	var block cipher.Block
+	var ciphertext []byte
+	var iv []byte
 	var err error
 
-	out, err = rsa.DecryptPKCS1v15(rand.Reader, priv, ciphertext)
-	return out, err
+	if block, err = aes.NewCipher(key); err != nil {
+		return nil, err
+	}
+
+	// The IV needs to be unique. It's common to include it at the beginning
+	// of the ciphertext.
+	ciphertext = make([]byte, aes.BlockSize+len(plaintext))
+
+	iv = ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, err
+	}
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+
+	return ciphertext, nil
+}
+
+func DecryptAES(key, ciphertext []byte) ([]byte, error) {
+
+	var block cipher.Block
+	var err error
+	var iv []byte
+
+	if block, err = aes.NewCipher(key); err != nil {
+		return nil, err
+	}
+
+	iv = ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(ciphertext, ciphertext)
+
+	return ciphertext, nil
+}
+
+func EncryptPKCS(pub *rsa.PublicKey, msg []byte) ([]byte, error) {
+
+	return rsa.EncryptPKCS1v15(rand.Reader, pub, msg)
+}
+
+func DecryptPKCS(priv *rsa.PrivateKey, ciphertext []byte) ([]byte, error) {
+
+	return rsa.DecryptPKCS1v15(rand.Reader, priv, ciphertext)
+}
+
+func EncryptAESWithHMAC(plaintext, secret, hmac []byte) ([]byte, error) {
+
+	var ciphertext, signature, encrypted []byte
+	var err error
+
+	if ciphertext, err = EncryptAES(secret, plaintext); err != nil {
+		return nil, err
+	}
+
+	signature = ComputeMAC(ciphertext, hmac)
+
+	// Validate the length of this signature.
+	if len(signature) != 32 {
+		panic("Signature is expected to be 32 bytes")
+	}
+
+	encrypted = make([]byte, 0, len(ciphertext)+len(signature))
+	encrypted = append(encrypted, signature...)
+	encrypted = append(encrypted, ciphertext...)
+
+	return encrypted, nil
+}
+
+func DecryptAESWithHMAC(encrypted, secret, hmac []byte) ([]byte, error) {
+
+	var ciphertext, signature []byte
+	var valid bool
+
+	signature = encrypted[:32]
+	ciphertext = make([]byte, len(encrypted[32:]))
+	copy(ciphertext, encrypted[32:])
+
+	if valid = CheckMAC(ciphertext, signature, hmac); !valid {
+		return nil, errors.New("Signature does not match message.")
+	}
+
+	return DecryptAES(secret, ciphertext)
 }

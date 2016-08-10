@@ -29,6 +29,7 @@ func New(path string) (conf *Configurations, err error) {
 
 	conf = &Configurations{}
 
+	fmt.Printf("Attempting to load configuration from '%v'\n", path)
 	// Load the configuration, disregarding case.
 	file, err := ini.LoadFile(path)
 
